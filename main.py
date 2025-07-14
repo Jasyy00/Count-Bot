@@ -32,7 +32,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Bot Variablen
 last_number = 0
 last_user = None
-channel_id = 1386659088984834078  # Ersetze mit deiner Kanal-ID
+channel_id = 1394304779047538699  # Ersetze mit deiner Kanal-ID
 bot_mistake_chance = 0.05  # 5% Chance dass der Bot einen "Fehler" macht
 
 # Bot Antworten
