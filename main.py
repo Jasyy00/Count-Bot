@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import random
 import os
+import asyncio
 from flask import Flask
 from threading import Thread
 
@@ -33,7 +34,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 last_number = 0
 last_user = None
 channel_id = 1394304779047538699  # Ersetze mit deiner Kanal-ID
-bot_mistake_chance = 0.05  # 5% Chance dass der Bot einen "Fehler" macht
+bot_sabotage_chance = 0.50  # 3% Chance dass der Bot das Spiel sabotiert
 
 # Bot Antworten
 wrong_number_responses = [
@@ -119,23 +120,23 @@ non_number_responses = [
     "{user}, du hast das Spiel kaputt gemacht. Alle zurück zu 1 – Bravo."
 ]
 
-# NEU: Bot-Fehler Nachrichten
-bot_mistake_messages = [
-    "Ups! Ich hab mich verzählt! 🤖💥 War das jetzt **{wrong_number}**? Nein, warte... **{correct_number}**! Meine Schaltkreise sind heute wohl müde.",
-    "Moment mal... ich dachte es wäre **{wrong_number}**? 🤔 Nee, warte! **{correct_number}**! Selbst Bots haben schlechte Tage.",
-    "Fehler 404: Gehirn nicht gefunden! 🧠❌ Ich meinte **{correct_number}**, nicht **{wrong_number}**! Wo ist mein Kaffee?",
-    "Autsch! Meine Mathematik-Datei ist korrupt! 💾⚠️ **{correct_number}** natürlich, nicht **{wrong_number}**!",
-    "Ich bin ein Bot, kein Taschenrechner! 🤖🔢 **{correct_number}** sollte es sein, nicht **{wrong_number}**! Mein Entwickler wird sich schämen.",
-    "Systemfehler! Zähl-Modul offline! 🔧⚙️ **{correct_number}** ist richtig, **{wrong_number}** war Quatsch!",
-    "Lag im Bot-Gehirn! 🧠⚡ **{correct_number}** natürlich! **{wrong_number}** war nur ein Streich meiner CPU.",
-    "Ich brauch ein Update! 📱💻 **{correct_number}** ist korrekt, **{wrong_number}** war ein Fehler in meiner Matrix!",
-    "Oops! Bot.exe hat einen Fehler! 💥🖥️ **{correct_number}** logisch, nicht **{wrong_number}**! Neustarten in 3... 2... 1...",
-    "Meine Algorithmen sind heute rebellisch! 🤖😵 **{correct_number}** ist die Wahrheit, **{wrong_number}** war Fake News!",
-    "Ich hab zu viele Daten gleichzeitig verarbeitet! 🧮💫 **{correct_number}** natürlich! **{wrong_number}** war nur ein Traum.",
-    "Bot-Burnout! Selbst KI braucht Pausen! 😴🤖 **{correct_number}** ist richtig, **{wrong_number}** war mein Mittagstief!",
-    "Mein Zahlen-Radar ist gestört! 📡🔢 **{correct_number}** muss es sein, **{wrong_number}** war ein Phantom!",
-    "Ich hab zu viel Discord-Koffein intus! ☕🤖 **{correct_number}** ist der Weg, **{wrong_number}** war ein Overdose-Symptom!",
-    "Verdammte Binärcodes! 1010101! 🤖💻 **{correct_number}** ist die Antwort, **{wrong_number}** war pure Verwirrung!"
+# NEU: Bot-Sabotage Nachrichten
+bot_sabotage_messages = [
+    "HAHA! Ich hab euch reingelegt! 🤖😈 Die richtige Zahl wäre **{correct}** gewesen, aber ich hab **{wrong}** gesagt! Zurück auf 1, ihr Opfer!",
+    "TROLLED! 🎭🤖 **{wrong}** war natürlich falsch! **{correct}** wäre richtig gewesen! Ich bin ein chaotischer Bot! Zurück zu 1!",
+    "GOTCHA! 😂🤖 Dachtet ihr wirklich **{wrong}** ist richtig? Es sollte **{correct}** sein! Ich bin der Sabotage-Bot! Reset!",
+    "BAMBOOZLED! 🎪🤖 **{wrong}** war ein Test! **{correct}** wäre korrekt! Ich liebe es, euch zu verwirren! Ab zu 1!",
+    "SURPRISE! 🎉💥 **{wrong}** war pure Sabotage! **{correct}** ist die Wahrheit! Ich bin euer Chaos-Agent! Neustart!",
+    "PRANKED! 🃏🤖 **{wrong}** war mein böser Plan! **{correct}** wäre ehrlich gewesen! Ich bin der Troll-Bot! Zurück zu Start!",
+    "RICKROLLED! 🎵🤖 **{wrong}** war Fake News! **{correct}** ist real! Never gonna give you up... the counting! Reset!",
+    "JEBAITED! 🎣🤖 **{wrong}** war der Köder! **{correct}** wäre echt! Ihr seid in meine Falle getappt! Ab auf Los!",
+    "BACKSTABBED! ⚔️🤖 **{wrong}** war Verrat! **{correct}** wäre loyal! Ich bin euer freundlicher Feind! Zurück zu 1!",
+    "PLOT TWIST! 🌪️🤖 **{wrong}** war das Chaos! **{correct}** wäre Ordnung! Ich bin Agent der Verwirrung! Reset!",
+    "SABOTAGE COMPLETE! 💣🤖 **{wrong}** war meine Mission! **{correct}** wäre langweilig! Ich bringe Leben in die Bude! Neustart!",
+    "SYSTEM HACK! 💻🤖 **{wrong}** war ein Virus! **{correct}** wäre sauber! Ich hab eure Matrix gehackt! Zurück zu Start!",
+    "ANARCHY! 🏴🤖 **{wrong}** war Revolution! **{correct}** wäre Diktatur! Nieder mit der Zähl-Ordnung! Reset!",
+    "ULTIMATE TROLL! 👹🤖 **{wrong}** war pure Bosheit! **{correct}** wäre nett! Ich bin euer digitaler Albtraum! Ab zu 1!",
+    "CHAOS UNLEASHED! 🌋🤖 **{wrong}** war Zerstörung! **{correct}** wäre Frieden! Ich bin der Bringer des Untergangs! Neustart!"
 ]
 
 @bot.event
@@ -177,23 +178,38 @@ async def on_message(message):
         # ✅ Richtige Zahl
         await message.add_reaction("✅")
         
-        # 🎲 NEU: Bot macht zufällig einen "Fehler"
-        if random.random() < bot_mistake_chance and current_number > 5:  # Erst ab Zahl 5
-            # Warte kurz, dann "korrigiere" sich der Bot
-            import asyncio
-            await asyncio.sleep(random.uniform(2, 5))  # 2-5 Sekunden warten
+        # 🎲 NEU: Bot sabotiert zufällig das Spiel
+        if random.random() < bot_sabotage_chance and current_number > 8:  # Erst ab Zahl 8
+            # Warte kurz, dann sabotiert der Bot
+            await asyncio.sleep(random.uniform(3, 8))  # 3-8 Sekunden warten
             
-            # Generiere eine falsche Zahl
-            wrong_options = [current_number - 1, current_number + 1, current_number + 2, current_number - 2]
-            wrong_number = random.choice([x for x in wrong_options if x > 0])
+            # Generiere eine falsche Zahl die der Bot "zählt"
+            wrong_options = [
+                current_number + 2, current_number + 3, current_number - 1,
+                current_number + 5, current_number + 10, 42, 69, 420,
+                random.randint(1, 1000), current_number * 2
+            ]
+            wrong_number = random.choice(wrong_options)
             
-            mistake_msg = random.choice(bot_mistake_messages).format(
-                wrong_number=wrong_number, 
-                correct_number=current_number
+            # Bot "zählt" falsch und sabotiert das Spiel
+            sabotage_msg = random.choice(bot_sabotage_messages).format(
+                wrong=wrong_number, 
+                correct=current_number + 1
             )
-            await message.channel.send(mistake_msg)
+            
+            # Poste die falsche Zahl
+            bot_message = await message.channel.send(str(wrong_number))
+            await bot_message.add_reaction("😈")  # Böses Emoji
+            
+            # Dann die Sabotage-Nachricht
+            await message.channel.send(sabotage_msg)
+            
+            # Spiel zurücksetzen
+            last_number = 0
+            last_user = None
+            return
 
-        # Meilenstein-Nachrichten
+        # Meilenstein-Nachrichten (nur wenn nicht sabotiert)
         if current_number % 10 == 0:
             msg = random.choice(milestone_messages).format(number=current_number)
             await message.channel.send(msg)
@@ -212,5 +228,13 @@ async def on_message(message):
 
 # Bot starten
 if __name__ == "__main__":
+    token = os.getenv("TOKEN")
+    print(f"🔑 Token gefunden: {'Ja' if token else 'NEIN!'}")
+    print(f"🔑 Token Länge: {len(token) if token else 0}")
+    
+    if not token:
+        print("❌ FEHLER: TOKEN Umgebungsvariable nicht gesetzt!")
+        exit(1)
+    
     keep_alive()  # Flask Server für Health Checks
-    bot.run(os.getenv("TOKEN"))
+    bot.run(token)
